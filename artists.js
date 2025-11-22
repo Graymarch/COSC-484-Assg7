@@ -4,8 +4,16 @@ var cheerio = require("cheerio")
 var creds = require("./credentials.json")
 var $
 var results = []
+var args = process.argv
 
-axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects popvortex's DOM
+if(args.length > 2){ //TODO Consider how to search the array of objects for a given artist. Perhaps create an array for each artist and push their songs there. 
+    webScraper()
+}else{
+    console.log("Insufficient parameters. Please enter the artists you want to search for.")
+}
+
+function webScraper(){
+    axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects popvortex's DOM
     .then((response) => {
         console.log(`Status Code: ${response.status}`) //Reports the status code
         $ = cheerio.load(response.data) //Loads the DOM into the cheerio selector
@@ -50,3 +58,4 @@ axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects
     .catch((error) => {
         console.log(`Error. Please try again.\nE: ${error}`)
     })
+}

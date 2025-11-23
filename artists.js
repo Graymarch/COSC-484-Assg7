@@ -63,7 +63,9 @@ async function webScraper(args){
         }
 
         //Sends the email containing the artist(s) and their songs. 
-        mailer(foundArtists)
+        if(foundArtists.length > 0){
+            mailer(foundArtists)
+        }
     })
     .catch((error) => {
         console.log(`Error. Please try again.\nE: ${error}`)

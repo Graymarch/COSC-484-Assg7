@@ -18,7 +18,6 @@ if(args.length > 2){
 async function webScraper(args){
     axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects popvortex's DOM
     .then((response) => {
-        console.log(`Status Code: ${response.status}`); //Reports the status code
         $ = cheerio.load(response.data); //Loads the DOM into the cheerio selector
 
         if($){ //Ensures data was loaded into the buffer.
@@ -56,7 +55,7 @@ async function webScraper(args){
         let foundArtists = []
         for(i=2;i<args.length;i++){
             if(allArtist.includes(args[i])){
-                console.log(`Artist ${args[i]} was found.\nSongs: `)
+                console.log(`Artist ${args[i]} was found.`)
                 foundArtists.push(args[i])
             }else{
                 console.log(`Artist ${args[i]} was not found.`)

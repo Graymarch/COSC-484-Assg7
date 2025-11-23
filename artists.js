@@ -1,61 +1,79 @@
-var axios = require("axios")
-var nodeMailer = require("nodemailer")
-var cheerio = require("cheerio")
-var creds = require("./credentials.json")
-var $
-var results = []
-var args = process.argv
+var axios = require("axios") //HTTP requests module
+var nodeMailer = require("nodemailer") //Email module
+var cheerio = require("cheerio") //Webscraper module
+var creds = require("./credentials.json") //Imports the credentials for nodemailer. 
+var $ //Buffer for cheerio operations. 
+var args = process.argv //Holds the arguments from the command line. 
+var allArtist = [] //Holds the names of all artists processed by the scraper.
+var artistToSong = [] //Holds an array of JSON objects mapping artists to songs they were involved in. 
 
-if(args.length > 2){ //TODO Consider how to search the array of objects for a given artist. Perhaps create an array for each artist and push their songs there. 
-    webScraper()
+//Ensures the user actually searched for some artists. 
+if(args.length > 2){
+    webScraper();
 }else{
-    console.log("Insufficient parameters. Please enter the artists you want to search for.")
+    console.log("Insufficient parameters. Please enter the artists you want to search for.");
 }
 
+//Main webscraper method. 
 function webScraper(){
     axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects popvortex's DOM
     .then((response) => {
-        console.log(`Status Code: ${response.status}`) //Reports the status code
-        $ = cheerio.load(response.data) //Loads the DOM into the cheerio selector
+        console.log(`Status Code: ${response.status}`); //Reports the status code
+        $ = cheerio.load(response.data); //Loads the DOM into the cheerio selector
 
         if($){
             $("p.title-artist").each(function(i, element) { //Selects all paragraphs with the class 'title-artist' which contains the title and artist(s) for a song. 
-                let title = $(this).find("cite.title").text() //Processes each elements title and artist child elements' text.
-                let artist = $(this).find("em.artist").text()
-                // let test = "test"
-                if(artist.includes("&")){ //Splits the artists and stores them in an array if there are multiple artists. 
-                    artist = artist.split("&")
-                    artist.forEach(function(element, index, artist) {
-                        artist[index] = element.trim()
-                    });
-                }
+                let title = $(this).find("cite.title").text(); //Processes each elements title and artist child elements' text.
+                let artist = $(this).find("em.artist").text();
+                artist = artistSplitter(artist);
 
                 let featIndex = title.indexOf("feat.") //Finds where the 'featuring' credit starts. 
                 if(featIndex != -1){
-                    let featEnd = title.indexOf(")", featIndex) //Finds where the 'featuring' credit ends.
-                    let featArtists = title.substring(featIndex + 6, featEnd) //Collects the substring containing the featured artist(s) name. 
-                    if(featArtists.includes("&")){ //Splits the artists and stores them in an array if there are multiple artists. 
-                        featArtists = featArtists.split("&")
-                        featArtists.forEach(function(element, index, featArtists) {
-                            featArtists[index] = element.trim()
-                        });
-                    }
-
-                    //Checks if there are already multiple artist by checking the artist variable's type. If it is, it concatenates the featured artists
-                    //otherwise, it adds the original artist to an array and concatenates them. 
-                    if(typeof(artist) == "object"){ 
-                        artist = artist.concat(featArtists)
-                    }else{
-                        artist = [artist].concat(featArtists)
-                    }
+                    let featEnd = title.indexOf(")", featIndex); //Finds where the 'featuring' credit ends.
+                    let featArtists = title.substring(featIndex + 6, featEnd); //Collects the substring containing the featured artist(s) name. 
+                    featArtists = artistSplitter(featArtists);
+                    
+                    artist = artist.concat(featArtists); //Adds featured artists to the array of all artists related to this song. 
                 }
-                results.push({"title": title, "artist": artist})
+                
+                artist.forEach(function(element){
+                    if(allArtist.includes(element)){ //Checks if the artist has already been mapped. 
+                        //If a mapping exists, push the new title to their songs array. Since their instance in allArtist and artistToSong were pushed at the same time
+                        //They should exist at the same index in both arrays. 
+                        artistToSong[allArtist.indexOf(element)].songs.push(title) 
+                    }else{
+                        //If a mapping doesn't exist, create an instance in allArtist and push the artist with the current song into artistToSong.
+                        allArtist.push(element)
+                        artistToSong.push({"artist": element, "songs": [title]})
+                    }
+                });
             })
         }
 
-        console.log(results)
+        artistToSong.forEach(artist => {
+            console.log(artist)
+        })
     })
     .catch((error) => {
         console.log(`Error. Please try again.\nE: ${error}`)
     })
+}
+
+//Splits a string containing one or more artist names into an array of artist names. 
+function artistSplitter(artists) {
+    let artistArray = [artists] //Converts the string parameter into an array. 
+    if(artistArray[0].includes("&")){
+        if(artistArray[0].includes(",")){ //Commas only matter if multiple artists are present, so this is checked second. 
+            artistArray = artistArray[0].split(",")
+        }
+        let artistPair = artistArray[artistArray.length-1].split("&");
+        artistArray.pop(); //Removes the element from the array containing two artist names separated by an &
+        artistArray = artistArray.concat(artistPair); //Adds the new pair of artists to the array. 
+        //Trims the whitespace from each artist name. 
+        artistArray.forEach(function(element, index, artistArray){ 
+            artistArray[index] = element.trim()
+        });
+    }
+
+    return artistArray
 }

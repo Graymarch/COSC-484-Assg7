@@ -9,22 +9,24 @@ var artistToSong = [] //Holds an array of JSON objects mapping artists to songs 
 
 //Ensures the user actually searched for some artists. 
 if(args.length > 2){
-    webScraper();
+    webScraper(args)
 }else{
     console.log("Insufficient parameters. Please enter the artists you want to search for.");
 }
 
 //Main webscraper method. 
-function webScraper(){
+async function webScraper(args){
     axios.get("https://www.popvortex.com/music/charts/top-rap-songs.php") //Collects popvortex's DOM
     .then((response) => {
         console.log(`Status Code: ${response.status}`); //Reports the status code
         $ = cheerio.load(response.data); //Loads the DOM into the cheerio selector
 
-        if($){
+        if($){ //Ensures data was loaded into the buffer.
             $("p.title-artist").each(function(i, element) { //Selects all paragraphs with the class 'title-artist' which contains the title and artist(s) for a song. 
-                let title = $(this).find("cite.title").text(); //Processes each elements title and artist child elements' text.
+                //Processes each elements title and artist child elements' text.
+                let title = $(this).find("cite.title").text(); 
                 let artist = $(this).find("em.artist").text();
+                let originalArtist = artist
                 artist = artistSplitter(artist);
 
                 let featIndex = title.indexOf("feat.") //Finds where the 'featuring' credit starts. 
@@ -40,19 +42,28 @@ function webScraper(){
                     if(allArtist.includes(element)){ //Checks if the artist has already been mapped. 
                         //If a mapping exists, push the new title to their songs array. Since their instance in allArtist and artistToSong were pushed at the same time
                         //They should exist at the same index in both arrays. 
-                        artistToSong[allArtist.indexOf(element)].songs.push(title) 
+                        artistToSong[allArtist.indexOf(element)].songs.push({"title": title, "originalArtist": originalArtist}) 
                     }else{
                         //If a mapping doesn't exist, create an instance in allArtist and push the artist with the current song into artistToSong.
                         allArtist.push(element)
-                        artistToSong.push({"artist": element, "songs": [title]})
+                        artistToSong.push({"artist": element, "songs": [{"title": title, "originalArtist": originalArtist}]})
                     }
                 });
             })
         }
 
-        artistToSong.forEach(artist => {
-            console.log(artist)
-        })
+        // artistToSong.forEach(artist => {
+        //     console.log(artist)
+        // })
+
+        for(i=2;i<args.length;i++){
+            if(allArtist.includes(args[i])){
+                console.log(`Artist ${args[i]} was found.\nSongs: `)
+                console.log(artistToSong[allArtist.indexOf(args[i])].songs)
+            }else{
+                console.log(`Artist ${args[i]} was not found.`)
+            }
+        }
     })
     .catch((error) => {
         console.log(`Error. Please try again.\nE: ${error}`)
@@ -76,4 +87,27 @@ function artistSplitter(artists) {
     }
 
     return artistArray
+}
+
+//Creates and sends the email. 
+function mailer(){
+    let transport = nodeMailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+            user: creds.sender_email,
+            pass: creds.sender_password
+        }
+    })
+
+    let mailOptions = {
+        from: creds.from,
+        to: creds.to,
+        subject: "Placeholder",
+        text: "Placeholder",
+        html: "Placeholder"
+    }
+
+    transport.sendMail(mailOptions)
 }

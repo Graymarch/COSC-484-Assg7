@@ -52,18 +52,19 @@ async function webScraper(args){
             })
         }
 
-        // artistToSong.forEach(artist => {
-        //     console.log(artist)
-        // })
-
+        //Logs to the command line which artists were or weren't found. 
+        let foundArtists = []
         for(i=2;i<args.length;i++){
             if(allArtist.includes(args[i])){
                 console.log(`Artist ${args[i]} was found.\nSongs: `)
-                console.log(artistToSong[allArtist.indexOf(args[i])].songs)
+                foundArtists.push(args[i])
             }else{
                 console.log(`Artist ${args[i]} was not found.`)
             }
         }
+
+        //Sends the email containing the artist(s) and their songs. 
+        mailer(foundArtists)
     })
     .catch((error) => {
         console.log(`Error. Please try again.\nE: ${error}`)
@@ -90,23 +91,66 @@ function artistSplitter(artists) {
 }
 
 //Creates and sends the email. 
-function mailer(){
+function mailer(foundArtists){
     let transport = nodeMailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
+        service: "gmail",
         auth: {
             user: creds.sender_email,
             pass: creds.sender_password
         }
     })
 
+    //Formats the subject line of the email. 
+    let subject = "";
+    switch (foundArtists.length){
+        case 1:
+            subject = "You Artist Is: " + foundArtists[0];
+            break;
+        case 2: 
+            subject = `Your Artists are: ${foundArtists[0]} and ${foundArtists[1]}`;
+            break;
+        default:
+            subject = "Your Artists are: "
+            for(i=0;i<foundArtists.length-1;i++){
+                subject += foundArtists[i] + ", ";
+            }
+            subject += "and " + foundArtists[foundArtists.length-1];
+            break;
+    }
+
+    //Formats the plain text of the email
+    let text = "";
+    for(i=0;i<foundArtists.length;i++){
+        text += `${foundArtists[i]}: \n`
+        let artistIndex = allArtist.indexOf(foundArtists[i])
+        let songs = artistToSong[artistIndex].songs
+        for(j=0;j<songs.length;j++){
+            text += `=> ${songs[j].title} - By: ${songs[j].originalArtist}\n`
+        }
+        text += "\n"
+
+    }
+
+    //Formats the html content of the email. 
+    let htmlString = ""
+    for(i=0;i<foundArtists.length;i++){
+        htmlString += `<p><strong>${foundArtists[i]}</strong>:</p><ul>`
+        let artistIndex = allArtist.indexOf(foundArtists[i])
+        let songs = artistToSong[artistIndex].songs
+        for(j=0;j<songs.length;j++){
+            htmlString += `<li><em>${songs[j].title}</em> - By: <strong>${songs[j].originalArtist}</strong></li>`
+        }
+        htmlString += "</ul><br>"
+    }
+
+
+    //Configures the options for the email. 
     let mailOptions = {
         from: creds.from,
         to: creds.to,
-        subject: "Placeholder",
-        text: "Placeholder",
-        html: "Placeholder"
+        subject: subject,
+        text: text,
+        html: htmlString
     }
 
     transport.sendMail(mailOptions)
